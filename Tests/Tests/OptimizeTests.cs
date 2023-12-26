@@ -57,6 +57,8 @@ public class OptimizeTests
         {
             millec.RemoveAt(ReverseIndex(i, ADD_COUNT), performDecrementHighestTouchedOptimization: false); 
         }
+        
+        millec.Optimize();
 
         millec.FreeSlotCount.Should().Be(0);
 
