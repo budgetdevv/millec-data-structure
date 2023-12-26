@@ -5,8 +5,6 @@ using System.Runtime.InteropServices;
 
 namespace MILLEC
 {
-    
-    
     public unsafe struct MILLEC<T>
     {
         internal T[] _itemsArr;
