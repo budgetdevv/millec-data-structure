@@ -132,7 +132,7 @@ namespace MILLEC
             }
         }
         
-        public ref struct Enumerator
+        public ref struct ItemsEnumerator
         {
             private readonly ref T FirstItem, LastItem;
             
@@ -144,7 +144,7 @@ namespace MILLEC
             
             public ref T Current => ref CurrentItem;
 
-            internal Enumerator(ItemsArrayInterfacer itemsArrayInterfacer, BitVectorsArrayInterfacer bitVectorsArrayInterfacer)
+            internal ItemsEnumerator(ItemsArrayInterfacer itemsArrayInterfacer, BitVectorsArrayInterfacer bitVectorsArrayInterfacer)
             {
                 FirstItem = ref itemsArrayInterfacer.FirstItem; 
                 // MoveNext() is always called before the first iteration
@@ -175,9 +175,9 @@ namespace MILLEC
             }
         }
 
-        public Enumerator GetEnumerator()
+        public ItemsEnumerator GetEnumerator()
         {
-            return new Enumerator(new ItemsArrayInterfacer(_itemsArr), new BitVectorsArrayInterfacer(_bitVectorsArr));
+            return new ItemsEnumerator(new ItemsArrayInterfacer(_itemsArr), new BitVectorsArrayInterfacer(_bitVectorsArr));
         }
     }
 }
