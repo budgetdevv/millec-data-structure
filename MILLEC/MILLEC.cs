@@ -274,46 +274,6 @@ namespace MILLEC
 
             var firstFreeSlot = _firstFreeSlot;
 
-            // ref var currentFreeSlot = ref firstFreeSlot.GetNextFreeSlot(itemsInterfacer);
-            //
-            // ref var writeSlot = ref Unsafe.NullRef<T>();
-            //
-            // if (Unsafe.IsNullRef(ref currentFreeSlot))
-            // {
-            //     Debug.Assert(HighestTouchedIndex == writeIndex - 1);
-            //     
-            //     // Regardless of need to resize, set HighestTouchedIndex to be writeIndex
-            //     HighestTouchedIndex = writeIndex;
-            //     
-            //     // This pattern elide bounds.
-            //     if (writeIndex < itemsArr.Length)
-            //     {
-            //         writeSlot = ref itemsArr[writeIndex];
-            //     }
-            //
-            //     else
-            //     {
-            //         ResizeAdd(item);
-            //         return;
-            //     }
-            // }
-            //
-            // else
-            // {
-            //     // Write value of currentFreeSlot to the field
-            //     FirstFreeSlot = currentFreeSlot;
-            //     
-            //     writeSlot = ref currentFreeSlot.ReinterpretAsItem();
-            //
-            //     writeIndex = firstFreeSlot.Next;
-            // }
-            //
-            // writeSlot = item;
-            //
-            // var bitInterfacer = new BitInterfacer(new BitVectorsArrayInterfacer(BitVectorsArr), writeIndex);
-            //
-            // bitInterfacer.Set();
-
             ref var slot = ref itemsInterfacer.GetFirstFreeOrNewSlot(firstFreeSlot, ref writeIndex, out var isNewSlot);
 
             if (isNewSlot)
