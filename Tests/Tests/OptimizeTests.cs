@@ -39,6 +39,7 @@ public class OptimizeTests
         millec.Count.Should().Be(NEW_COUNT);
     }
 
+    [Test]
     public void TrailingRemovesShouldBeOptimized()
     {
         var millec = TestMillec.New(0, 0);
