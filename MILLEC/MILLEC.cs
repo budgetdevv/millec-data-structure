@@ -181,7 +181,8 @@ namespace MILLEC
             new BitInterfacer(new BitVectorsArrayInterfacer(_bitVectorsArr), writeIndex).Set();
         }
 
-        public void RemoveAt(int index)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization to be constant-folded.
+        public void RemoveAt(int index, bool performDecrementHighestTouchedOptimization = true)
         {
             var itemsArr = _itemsArr;
             
@@ -199,7 +200,7 @@ namespace MILLEC
                 goto Empty;
             }
             
-            if (index == _highestTouchedIndex)
+            if (performDecrementHighestTouchedOptimization && index == _highestTouchedIndex)
             {
                 goto DecrementHighestTouched;
             }

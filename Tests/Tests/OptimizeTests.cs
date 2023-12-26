@@ -29,7 +29,7 @@ public class OptimizeTests
         
         for (int i = 0; i < REMOVE_COUNT; i++)
         {
-            millec.RemoveAt(!removeTrailing ? i : ReverseIndex(i, ADD_COUNT)); 
+            millec.RemoveAt(!removeTrailing ? i : ReverseIndex(i, ADD_COUNT), performDecrementHighestTouchedOptimization: false);  
         }
 
         millec.Count.Should().Be(NEW_COUNT);
@@ -55,7 +55,7 @@ public class OptimizeTests
         
         for (int i = 0; i < REMOVE_COUNT; i++)
         {
-            millec.RemoveAt(ReverseIndex(i, ADD_COUNT)); 
+            millec.RemoveAt(ReverseIndex(i, ADD_COUNT), performDecrementHighestTouchedOptimization: false); 
         }
 
         millec.FreeSlotCount.Should().Be(0);
