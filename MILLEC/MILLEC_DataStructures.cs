@@ -258,6 +258,18 @@ namespace MILLEC
                 
                 return !Unsafe.IsNullRef(ref FreeSlotInterfacer.CurrentFreeSlot);
             }
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public FreeSlotEnumerator GetEnumerator()
+            {
+                return this;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public FreeSlotEnumerator GetFreeSlotEnumerator()
+        {
+            return new FreeSlotEnumerator(ref this);
         }
     }
 }
