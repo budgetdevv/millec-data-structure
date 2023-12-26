@@ -425,6 +425,9 @@ namespace MILLEC
                 previousSlot = ref previousSlot.GetNextFreeSlot(itemsArrInterfacer, skipValidate: true);
             }
 
+            // Taking a ref to _firstFreeSlot is a great idea, as it ensures that
+            // _firstFreeSlot's next is -1 even if we end up optimizing away all of
+            // the free slots!
             // Set the last free slot's next to be -1.
             previousSlot.Next = -1;
 
