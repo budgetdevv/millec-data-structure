@@ -239,8 +239,6 @@ namespace MILLEC
             var itemsArr = _itemsArr;
 
             ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, skipValidation, out var bitInterfacer);
-            
-            Unsafe.SkipInit(out FreeSlot newFreeSlot);
 
             bitInterfacer.Clear();
 
@@ -265,11 +263,8 @@ namespace MILLEC
 
             // Deleted item's slot now houses previous free slot
             freeSlot = _firstFreeSlot;
-            
-            // We will set the FirstFreeSlot field to current index.
-            newFreeSlot.Next = index;
-            
-            _firstFreeSlot = newFreeSlot;
+            // We will set the _firstFreeSlot's Next field to current index.
+            _firstFreeSlot.Next = index;
             return;
             
             DecrementHighestTouched: // If we are deleting the last item, just decrement the HighestTouchedIndex.
@@ -296,6 +291,73 @@ namespace MILLEC
                     }
                 }
                 
+                #endif
+                @this.Clear(false);
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization and skipValidation to be constant-folded.
+        public void RemoveAt(int index, out T removedItem, bool performDecrementHighestTouchedOptimization = true, bool skipValidation = false)
+        {
+            var itemsArr = _itemsArr;
+
+            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, skipValidation, out var bitInterfacer);
+
+            bitInterfacer.Clear();
+
+            var newCount = --_count;
+            
+            var itemsArrayInterfacer = new ItemsArrayInterfacer(itemsArr);
+
+            ref var removedItemRef = ref itemsArrayInterfacer[index];
+
+            // Copy its value before we overwrite it with FreeSlot data.
+            // Do not move this line of code down.
+            removedItem = removedItemRef;
+            
+            // Count will never be negative, as ValidateItemExistsAtIndex() will throw.
+            if (newCount == 0)
+            {
+                goto Empty;
+            }
+            
+            if (performDecrementHighestTouchedOptimization && index == _highestTouchedIndex)
+            {
+                goto DecrementHighestTouched;
+            }
+            
+            ref var freeSlot = ref FreeSlot.ReinterpretItemAsFreeSlot(ref removedItemRef);
+
+            // Deleted item's slot now houses previous free slot
+            freeSlot = _firstFreeSlot;
+            
+            // We will set the _firstFreeSlot's Next field to current index.
+            _firstFreeSlot.Next = index;
+            return;
+            
+            DecrementHighestTouched: // If we are deleting the last item, just decrement the HighestTouchedIndex.
+            _highestTouchedIndex = index - 1;
+            return;
+            
+            Empty:
+            Empty(ref this);
+            return;
+            
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            void Empty(ref MILLEC<T> @this)
+            {
+                Debug.Assert(@this._count == 0);
+                
+                // We already clear set bit via bitInterfacer.Clear();
+                // At this point, the BitVectorArr is guaranteed to be all cleared.
+                #if DEBUG
+                foreach (var bitVector in @this._bitVectorsArr)
+                {
+                    if (bitVector != 0)
+                    {
+                        throw new Exception($"nameof{bitVector} not cleared!");
+                    }
+                }
                 #endif
                 @this.Clear(false);
             }
