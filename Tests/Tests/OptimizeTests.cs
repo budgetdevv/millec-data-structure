@@ -6,7 +6,9 @@ namespace Tests.Tests;
 public class OptimizeTests
 {
     [Test]
-    public void ItemCountShouldNotChange()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ItemCountShouldNotChange(bool removeTrailing)
     {
         var millec = TestMillec.New(0, 0);
 
@@ -21,7 +23,10 @@ public class OptimizeTests
         
         for (int i = 0; i < REMOVE_COUNT; i++)
         {
-            millec.RemoveAt(i); 
+            // [ 0, 1, 2 ] ( Length: 3 ), 3 - 0 - 1 = 2, which is the index of last element.
+            var index = !removeTrailing ? i : ADD_COUNT - i - 1;
+            
+            millec.RemoveAt(index); 
         }
 
         millec.Count.Should().Be(NEW_COUNT);
