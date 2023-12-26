@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -223,11 +224,12 @@ namespace MILLEC
                 Next = next;
             }
 
-            public ref FreeSlot GetNextFreeSlot(ItemsArrayInterfacer itemsArrayInterfacer)
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow skipValidate to be constant-folded
+            public ref FreeSlot GetNextFreeSlot(ItemsArrayInterfacer itemsArrayInterfacer, bool skipValidate = false)
             {
                 var next = Next;
                 
-                if (next != NO_NEXT_SLOT_VALUE)
+                if (next != NO_NEXT_SLOT_VALUE || skipValidate)
                 {
                     return ref Unsafe.As<T, FreeSlot>(ref Unsafe.Add(ref itemsArrayInterfacer.FirstItem, next));
                 }
@@ -408,9 +410,156 @@ namespace MILLEC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int IndexOfItemRef(ref T firstItem, ref T item)
         {
-            return unchecked((int) (Unsafe.ByteOffset(ref firstItem, ref item) / sizeof(T)));
+            return IndexOfRef<T>(ref firstItem, ref item);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int IndexOfRef<F>(ref F firstRef, ref F currentRef)
+        {
+            return unchecked((int) (Unsafe.ByteOffset(ref firstRef, ref currentRef) / sizeof(F)));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<int> GetFreeSlotIndices(Span<int> buffer)
+        {
+            var freeSlotCount = FreeSlotCount;
+
+            if (freeSlotCount <= buffer.Length)
+            {
+                return UnsafeGetFreeSlotIndices(buffer, freeSlotCount);
+            }
+
+            return Throw();
+            
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            Span<int> Throw()
+            {
+                throw new OverflowException($"{nameof(buffer)} is too small!");
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<int> UnsafeGetFreeSlotIndices(Span<int> buffer, int freeSlotCount)
+        {
+            ref var first = ref MemoryMarshal.GetReference(buffer);
+            
+            ref var lastOffsetByOne = ref Unsafe.Add(ref first, freeSlotCount);
+            
+            return UnsafeGetFreeSlotIndices(ref first, ref lastOffsetByOne, freeSlotCount, new ItemsArrayInterfacer(_itemsArr));
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private Span<int> UnsafeGetFreeSlotIndices(ref int first, ref int lastOffsetByOne, int freeSlotCount, ItemsArrayInterfacer itemsArrInterfacer)
+        {
+            ref var current = ref first;
+            
+            var span = MemoryMarshal.CreateSpan(ref current, freeSlotCount);
+            
+            var currentFreeSlot = _firstFreeSlot;
+            
+            for (; !Unsafe.AreSame(ref current, ref lastOffsetByOne)
+                 ; current = ref Unsafe.Add(ref current, 1)
+                 // It is indeed possible for it to return a null-ref. However, we will never
+                 // dereference it due to the loop being skipped ( freeSlotCount will be 0 )
+                 , currentFreeSlot = currentFreeSlot.GetNextFreeSlot(itemsArrInterfacer))
+            {
+                current = currentFreeSlot.Next;
+            }
+
+            return span;
+        }
+
+        // Avoid extra indirection
+        private static readonly ArrayPool<int> SharedArrayPool = ArrayPool<int>.Shared;
+        
+        public void Optimize()
+        {
+            var freeSlotCount = FreeSlotCount;
+
+            if (freeSlotCount == 0)
+            {
+                goto Ret; // Forward jump to favor slow path.
+            }
+            
+            var ap = SharedArrayPool;
+                
+            var buffer = ap.Rent(freeSlotCount);
+
+            ref var first = ref MemoryMarshal.GetArrayDataReference(buffer);
+
+            ref var lastOffsetByOne = ref MemoryMarshal.GetArrayDataReference(buffer);
+            
+            var itemsArrInterfacer = new ItemsArrayInterfacer(_itemsArr);
+            
+            var span = UnsafeGetFreeSlotIndices(ref first, ref lastOffsetByOne, freeSlotCount, itemsArrInterfacer);
+            
+            span.Sort();
+
+            var highestTouched = _highestTouchedIndex;
+
+            if (true) // I'd like to reuse currentFreeSlotIndex as a variable in foreach 
+            {
+                ref var currentFreeSlotIndex = ref lastOffsetByOne;
+
+                do // Check for adjacent free slots at the end, and reclaim them.
+                {
+                    currentFreeSlotIndex = ref Unsafe.Subtract(ref currentFreeSlotIndex, 1);
+                
+                    if (highestTouched - currentFreeSlotIndex == 1)
+                    {
+                        highestTouched = currentFreeSlotIndex;
+                        continue;
+                    }
+
+                    break;
+                } while (!Unsafe.IsAddressLessThan(ref currentFreeSlotIndex, ref first));
+                
+                // Unconditionally write highestTouched, regardless of whether it has changed or not
+                _highestTouchedIndex = highestTouched;
+            
+                // Assume original highestTouched is 8
+                // 7 and 8 will be adjacent. 0, 1 2 are not.
+                // The loop will terminate at 2, we want the length from 0 to 2, which is 3.
+                // To calculate it, we take 2 ( Which is the index ) - 0 + 1 = 3.
+                //
+                //         ---- Non-adjacent.
+                //         |
+                //         v
+                // [ 0, 1, 2, 7, 8 ]
+
+                var newBufferLength = IndexOfRef<int>(ref first, ref currentFreeSlotIndex) + 1;
+                
+                span = MemoryMarshal.CreateSpan(ref first, newBufferLength);
+
+                // Ensure we sliced the new span correctly. Do not move this check up, as FreeSlotCount has a dependency
+                // on the updated _highestTouchedIndex.
+                Debug.Assert(span.Length == FreeSlotCount);
+            }
+
+            ref var previousSlot = ref _firstFreeSlot;
+
+            foreach (var currentFreeSlotIndex in span)
+            {
+                previousSlot.Next = currentFreeSlotIndex;
+                previousSlot = ref previousSlot.GetNextFreeSlot(itemsArrInterfacer, skipValidate: true);
+            }
+
+            // Set the last free slot's next to be -1.
+            previousSlot.Next = -1;
+
+            ap.Return(buffer);
+            
+            #if DEBUG
+            var newFreeSlotCount = FreeSlotCount;
+            var testBuffer = new int[newFreeSlotCount];
+            var newFreeSlotIndices = GetFreeSlotIndices(testBuffer);
+            Debug.Assert(newFreeSlotIndices.SequenceEqual(span));
+            #endif
+            
+            Ret:
+            return;
+        }
+        
         public ref struct Enumerator
         {
             private readonly ref T FirstItem, LastItem;
