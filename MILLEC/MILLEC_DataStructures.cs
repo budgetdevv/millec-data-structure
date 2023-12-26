@@ -94,6 +94,12 @@ namespace MILLEC
 
                 return ref this[newSlotWriteIndex];
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public int IndexOfSlot(ref T slot)
+            {
+                return IndexOfItemRef(ref FirstItem, ref slot);
+            }
         }
         
         internal struct FreeSlot
@@ -178,6 +184,80 @@ namespace MILLEC
         public ItemsEnumerator GetEnumerator()
         {
             return new ItemsEnumerator(new ItemsArrayInterfacer(_itemsArr), new BitVectorsArrayInterfacer(_bitVectorsArr));
+        }
+        
+        public ref struct FreeSlotInterfacer
+        {
+            internal ref FreeSlot CurrentFreeSlot;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public ref T UnsafeGetItem()
+            {
+                return ref CurrentFreeSlot.ReinterpretAsItem();
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal FreeSlotInterfacer(ref FreeSlot currentFreeSlot)
+            {
+                CurrentFreeSlot = ref currentFreeSlot;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void MarkAsUsed(ref FreeSlotEnumerator enumerator)
+            {
+                if (Unsafe.AreSame(ref CurrentFreeSlot, ref enumerator.PreviousFreeSlot))
+                {
+                    MarkAsUsedUnsafe(ref enumerator);
+                }
+
+                return;
+                
+                [MethodImpl(MethodImplOptions.NoInlining)]
+                void Throw()
+                {
+                    throw new Exception($"{nameof(MarkAsUsed)} called on {nameof(FreeSlotInterfacer)} not belonging to current iteration!");
+                }
+            }
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void MarkAsUsedUnsafe(ref FreeSlotEnumerator enumerator)
+            {
+                // Patch the previous slot to point to current's next
+                enumerator.PreviousFreeSlot.Next = CurrentFreeSlot.Next;
+                var slotIndex = enumerator.ItemsArrInterfacer.IndexOfSlot(ref CurrentFreeSlot.ReinterpretAsItem());
+                // Mark the current free slot as used.
+                new BitInterfacer(enumerator.BitVectorsArrInterfacer, slotIndex).Set();
+            }
+        }
+        
+        public ref struct FreeSlotEnumerator
+        {
+            internal ref FreeSlot PreviousFreeSlot;
+            
+            internal FreeSlotInterfacer FreeSlotInterfacer;
+            
+            internal readonly ItemsArrayInterfacer ItemsArrInterfacer;
+
+            internal readonly BitVectorsArrayInterfacer BitVectorsArrInterfacer;
+            
+            public FreeSlotInterfacer Current => FreeSlotInterfacer;
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal FreeSlotEnumerator(ref MILLEC<T> list)
+            {
+                FreeSlotInterfacer.CurrentFreeSlot = ref list._firstFreeSlot;
+                ItemsArrInterfacer = new ItemsArrayInterfacer(list._itemsArr);
+                BitVectorsArrInterfacer = new BitVectorsArrayInterfacer(list._bitVectorsArr);
+            }
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext()
+            {
+                PreviousFreeSlot = ref FreeSlotInterfacer.CurrentFreeSlot;
+                FreeSlotInterfacer.CurrentFreeSlot = ref PreviousFreeSlot.GetNextFreeSlot(ItemsArrInterfacer);
+                
+                return !Unsafe.IsNullRef(ref FreeSlotInterfacer.CurrentFreeSlot);
+            }
         }
     }
 }
