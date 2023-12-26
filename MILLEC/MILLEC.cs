@@ -14,6 +14,7 @@ namespace MILLEC
         private FreeSlot _firstFreeSlot;
 
         public int Count => _count;
+        public int TouchedSlotsCount => _highestTouchedIndex + 1;
         public int Capacity => _itemsArr.Length;
 
         // Works for initial values too! -1 + 1 - 0 = 0
@@ -78,18 +79,26 @@ namespace MILLEC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool ItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, out BitInterfacer bitInterfacer)
+        private static bool ItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int itemsArrLength, out BitInterfacer bitInterfacer)
         {
             bitInterfacer = new BitInterfacer(bitVectorsArrayInterfacer, index);
 
             // HighestTouchedIndex is guaranteed to be < Length
-            return index <= _highestTouchedIndex && bitInterfacer.IsSet;
+            return unchecked((uint) index) <= itemsArrLength && bitInterfacer.IsSet;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int itemsArrLength, out BitInterfacer bitInterfacer)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow skipValidation to be constant-folded
+        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int itemsArrLength, bool skipValidation, out BitInterfacer bitInterfacer)
         {
-            if (unchecked((uint) index) < itemsArrLength && ItemExistsAtIndex(bitVectorsArrayInterfacer, index, out bitInterfacer))
+            // TODO: Does JIT optimize branches out?
+            if (skipValidation)
+            {
+                bitInterfacer = new BitInterfacer(bitVectorsArrayInterfacer, index);
+                
+                return;
+            }
+            
+            if (ItemExistsAtIndex(bitVectorsArrayInterfacer, index, itemsArrLength, out bitInterfacer))
             {
                 return;
             }
@@ -112,14 +121,14 @@ namespace MILLEC
             {
                 var itemsArr = _itemsArr;
                 
-                ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, out _);
+                ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, skipValidation: false, out _);
                     
                 return ref new ItemsArrayInterfacer(itemsArr)[index];
             }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)] // Don't pollute hot path
-        private void ResizeAdd(T item)
+        private ref T ResizeAdd()
         {
             // We incremented Count beforehand
             var writeIndex = _count - 1;
@@ -139,11 +148,12 @@ namespace MILLEC
             oldArr.AsSpan().CopyTo(newArr);
             oldBitArray.AsSpan().CopyTo(newBitArray);
             
-            // Write the item to writeIndex. Free slots are guaranteed to be exhausted if a resize is required.
-            new ItemsArrayInterfacer(newArr)[writeIndex] = item;
+            // Caller is responsible for setting bit after revamp of this method.
+            // // Remember to set its corresponding bit.
+            // new BitInterfacer(new BitVectorsArrayInterfacer(newBitArray), writeIndex).Set();
             
-            // Remember to set its corresponding bit.
-            new BitInterfacer(new BitVectorsArrayInterfacer(newBitArray), writeIndex).Set();
+            // Write the item to writeIndex. Free slots are guaranteed to be exhausted if a resize is required.
+            return ref new ItemsArrayInterfacer(newArr)[writeIndex];
         }
 
         public void Add(T item)
@@ -165,13 +175,12 @@ namespace MILLEC
                 Debug.Assert(writeIndex == _highestTouchedIndex + 1);
                 _highestTouchedIndex = writeIndex;
                 
-                if (writeIndex < itemsArr.Length)
+                if (writeIndex >= itemsArr.Length)
                 {
-                    goto WriteToSlotAndSetCorrespondingBit;
+                    goto Resize;
                 }
-
-                ResizeAdd(item);
-                return;
+                
+                goto WriteToSlotAndSetCorrespondingBit;
             }
 
             _firstFreeSlot = FreeSlot.ReinterpretItemAsFreeSlot(ref slot);
@@ -179,14 +188,57 @@ namespace MILLEC
             WriteToSlotAndSetCorrespondingBit:
             slot = item;
             new BitInterfacer(new BitVectorsArrayInterfacer(_bitVectorsArr), writeIndex).Set();
+            return;
+            
+            Resize:
+            slot = ref ResizeAdd();
+            goto WriteToSlotAndSetCorrespondingBit;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization to be constant-folded.
-        public void RemoveAt(int index, bool performDecrementHighestTouchedOptimization = true)
+        public ref T UnsafeAddUninitializedSlot()
+        {
+            // We take the value of Count before the increment, which is also the writeIndex
+            var writeIndex = _count++;
+            
+            var itemsArr = _itemsArr;
+
+            var itemsInterfacer = new ItemsArrayInterfacer(itemsArr);
+
+            var firstFreeSlot = _firstFreeSlot;
+
+            ref var slot = ref itemsInterfacer.GetFirstFreeOrNewSlot(firstFreeSlot, ref writeIndex, out var isNewSlot);
+
+            if (isNewSlot)
+            {
+                // Regardless of need to resize, set HighestTouchedIndex to be writeIndex
+                Debug.Assert(writeIndex == _highestTouchedIndex + 1);
+                _highestTouchedIndex = writeIndex;
+                
+                if (writeIndex >= itemsArr.Length)
+                {
+                    goto Resize;
+                }
+                
+                goto SetCorrespondingBitAndReturnSlotRef;
+            }
+
+            _firstFreeSlot = FreeSlot.ReinterpretItemAsFreeSlot(ref slot);
+            
+            SetCorrespondingBitAndReturnSlotRef: ;
+            new BitInterfacer(new BitVectorsArrayInterfacer(_bitVectorsArr), writeIndex).Set();
+            return ref slot;
+            
+            Resize:
+            slot = ref ResizeAdd();
+            goto SetCorrespondingBitAndReturnSlotRef;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization and skipValidation to be constant-folded.
+        public void RemoveAt(int index, bool performDecrementHighestTouchedOptimization = true, bool skipValidation = false)
         {
             var itemsArr = _itemsArr;
-            
-            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, out var bitInterfacer);
+
+            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, skipValidation, out var bitInterfacer);
             
             Unsafe.SkipInit(out FreeSlot newFreeSlot);
 
@@ -249,6 +301,46 @@ namespace MILLEC
             }
         }
 
+        private struct EquatableItem: IEquatable<EquatableItem>
+        {
+            private static readonly EqualityComparer<EquatableItem> Comparer;
+            
+            public T Item;
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool Equals(EquatableItem other)
+            {
+                return Comparer.Equals(this, other);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public override int GetHashCode()
+            {
+                return Comparer.GetHashCode(this);
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization to be constant-folded.
+        public bool TryRemoveItem(T item, bool performDecrementHighestTouchedOptimization = true)
+        {
+            var itemReinterpreted = Unsafe.As<T, EquatableItem>(ref item);
+
+            var itemsArr = _itemsArr;
+            
+            var span = MemoryMarshal.CreateSpan(ref Unsafe.As<T, EquatableItem>(ref new ItemsArrayInterfacer(itemsArr).FirstItem), TouchedSlotsCount);
+
+            var indexOfItem = span.IndexOf(itemReinterpreted);
+            
+            var success = indexOfItem != -1 && ItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), indexOfItem, itemsArr.Length, out _);
+            
+            if (success)
+            {
+                RemoveAt(indexOfItem, performDecrementHighestTouchedOptimization, skipValidation: true);
+            }
+
+            return success;
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear(bool clearBitVectors = true)
         {
