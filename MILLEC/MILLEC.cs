@@ -164,9 +164,14 @@ namespace MILLEC
             return index <= _highestTouchedIndex && bitInterfacer.IsSet;
         }
 
-        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, out BitInterfacer bitInterfacer)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int count, out BitInterfacer bitInterfacer)
         {
-            if (ItemExistsAtIndex(bitVectorsArrayInterfacer, index, out bitInterfacer))
+            // Implementation detail: count can be either Count or _itemsArr.Length. This is because we check for clear
+            // bits anyway - Free / non-live slots have cleared bits.
+            // The reason for either Count or _itemsArr.Length is mostly for better codegen.
+            // E.x. Some APIs already access Count / _itemsArr.Length
+            if (unchecked((uint) index) < count && ItemExistsAtIndex(bitVectorsArrayInterfacer, index, out bitInterfacer))
             {
                 return;
             }
@@ -187,9 +192,11 @@ namespace MILLEC
         {
             get
             {
-                ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, out _);
+                var itemsArr = _itemsArr;
+                
+                ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, out _);
                     
-                return ref new ItemsArrayInterfacer(_itemsArr)[index];
+                return ref new ItemsArrayInterfacer(itemsArr)[index];
             }
         }
 
@@ -333,9 +340,11 @@ namespace MILLEC
 
         public void RemoveAt(int index)
         {
-            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, out var bitInterfacer);
+            var oldCount = _count;
             
-            var newCount = _count - 1;
+            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, oldCount, out var bitInterfacer);
+            
+            var newCount = oldCount - 1;
             
             Unsafe.SkipInit(out FreeSlot newFreeSlot);
 
