@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MILLEC;
 
-public static class MILLECDebuggingExtensions
+public static class MILLEC_DebuggingExtensions
 {
     public static T[] GetItemsArray<T>(ref this MILLEC<T> instance)
     {
