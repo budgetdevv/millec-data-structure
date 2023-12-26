@@ -80,6 +80,7 @@ namespace MILLEC
         {
             public readonly ref byte FirstItem;
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public BitVectorsArrayInterfacer(byte[] bitVectorsArray)
             {
                 FirstItem = ref MemoryMarshal.GetArrayDataReference(bitVectorsArray);
@@ -87,6 +88,7 @@ namespace MILLEC
 
             public ref byte this[int index]
             {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref Unsafe.Add(ref FirstItem, index);
             }
         }
@@ -97,6 +99,7 @@ namespace MILLEC
 
             private readonly int VectorIndex;
             
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public BitInterfacer(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int slotIndex)
             {
                 // E.x. index 7 -> 7 / 8 -> Q:0 R:7, 8 -> 8 / 8 -> Q:1 R:0, 9 -> 9 / 8 ->  Q:1 R:1
@@ -105,12 +108,17 @@ namespace MILLEC
                 Slot = ref Unsafe.Add(ref bitVectorsArrayInterfacer.FirstItem, index);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsWholeByteClear()
             {
                 return Slot == 0;
             }
             
-            public bool IsSet => (Slot & (1 << VectorIndex)) != 0;
+            public bool IsSet
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => (Slot & (1 << VectorIndex)) != 0;
+            }
 
             public void Set()
             {
@@ -127,6 +135,7 @@ namespace MILLEC
         {
             public readonly ref T FirstItem;
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ItemsArrayInterfacer(T[] itemsArr)
             {
                 FirstItem = ref MemoryMarshal.GetArrayDataReference(itemsArr);
@@ -134,9 +143,11 @@ namespace MILLEC
 
             public ref T this[int index]
             {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref Unsafe.Add(ref FirstItem, index);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref T GetLastSlotOffsetByOne(T[] itemsArr)
             {
                 return ref this[itemsArr.Length];
@@ -380,17 +391,20 @@ namespace MILLEC
             // writing to it prior ( Via Add() )
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T UnsafeGetFirstItemReference()
         {
             return ref new ItemsArrayInterfacer(_itemsArr).FirstItem;
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T UnsafeGetItemReference(int index)
         {
             return ref new ItemsArrayInterfacer(_itemsArr)[index];
         }
 
         // ref T instead of ArrayItemsInterfacer, as Enumerator does not store ArrayItemsInterfacer.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int IndexOfItemRef(ref T firstItem, ref T item)
         {
             return unchecked((int) (Unsafe.ByteOffset(ref firstItem, ref item) / sizeof(T)));
