@@ -337,6 +337,12 @@ namespace MILLEC
             return span;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<int> GetFreeSlotIndicesAllocating()
+        {
+            return GetFreeSlotIndices(SharedArrayPool.Rent(FreeSlotCount));
+        }
+        
         // Avoid extra indirection
         private static readonly ArrayPool<int> SharedArrayPool = ArrayPool<int>.Shared;
         
