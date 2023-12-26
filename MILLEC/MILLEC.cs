@@ -317,6 +317,8 @@ namespace MILLEC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Span<int> UnsafeGetFreeSlotIndices(ref int first, ref int lastOffsetByOne, int freeSlotCount, ItemsArrayInterfacer itemsArrInterfacer)
         {
+            Debug.Assert(IndexOfRef<int>(ref first, ref lastOffsetByOne) == freeSlotCount);
+            
             ref var current = ref first;
             
             var span = MemoryMarshal.CreateSpan(ref current, freeSlotCount);
@@ -353,7 +355,7 @@ namespace MILLEC
 
             ref var first = ref MemoryMarshal.GetArrayDataReference(buffer);
 
-            ref var lastOffsetByOne = ref MemoryMarshal.GetArrayDataReference(buffer);
+            ref var lastOffsetByOne = ref Unsafe.Add(ref first, freeSlotCount);
             
             var itemsArrInterfacer = new ItemsArrayInterfacer(_itemsArr);
             
