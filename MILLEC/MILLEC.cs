@@ -87,13 +87,9 @@ namespace MILLEC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int count, out BitInterfacer bitInterfacer)
+        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int itemsArrLength, out BitInterfacer bitInterfacer)
         {
-            // Implementation detail: count can be either Count or _itemsArr.Length. This is because we check for clear
-            // bits anyway - Free / non-live slots have cleared bits.
-            // The reason for either Count or _itemsArr.Length is mostly for better codegen.
-            // E.x. Some APIs already access Count / _itemsArr.Length
-            if (unchecked((uint) index) < count && ItemExistsAtIndex(bitVectorsArrayInterfacer, index, out bitInterfacer))
+            if (unchecked((uint) index) < itemsArrLength && ItemExistsAtIndex(bitVectorsArrayInterfacer, index, out bitInterfacer))
             {
                 return;
             }
@@ -187,29 +183,28 @@ namespace MILLEC
 
         public void RemoveAt(int index)
         {
-            var oldCount = _count;
+            var itemsArr = _itemsArr;
             
-            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, oldCount, out var bitInterfacer);
-            
-            var newCount = oldCount - 1;
+            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, itemsArr.Length, out var bitInterfacer);
             
             Unsafe.SkipInit(out FreeSlot newFreeSlot);
 
             bitInterfacer.Clear();
+
+            var newCount = --_count;
             
-            if (newCount <= 0)
+            // Count will never be negative, as ValidateItemExistsAtIndex() will throw.
+            if (newCount == 0)
             {
                 goto Empty;
             }
-
-            _count = newCount;
             
             if (index == _highestTouchedIndex)
             {
                 goto DecrementHighestTouched;
             }
 
-            var itemsArrayInterfacer = new ItemsArrayInterfacer(_itemsArr);
+            var itemsArrayInterfacer = new ItemsArrayInterfacer(itemsArr);
 
             ref var removedItem = ref itemsArrayInterfacer[index];
 
@@ -235,23 +230,21 @@ namespace MILLEC
             [MethodImpl(MethodImplOptions.NoInlining)]
             void Empty(ref MILLEC<T> @this)
             {
-                // We did not actually set @this.Count ( It is set after the goto statement that leads to this helper. )
-                if (@this._count == 1)
-                {
-                    // We already clear set bit via bitInterfacer.Clear();
-                    // At this point, the BitVectorArr is guaranteed to be all cleared.
-                    #if DEBUG
-                    foreach (var bitVector in @this._bitVectorsArr)
-                    {
-                        if (bitVector != 0)
-                        {
-                            throw new Exception($"nameof{bitVector} not cleared!");
-                        }
-                    }
+                Debug.Assert(@this._count == 0);
                 
-                    #endif
-                    @this.Clear(false);
-                } // Else, it was already empty, do nothing.
+                // We already clear set bit via bitInterfacer.Clear();
+                // At this point, the BitVectorArr is guaranteed to be all cleared.
+                #if DEBUG
+                foreach (var bitVector in @this._bitVectorsArr)
+                {
+                    if (bitVector != 0)
+                    {
+                        throw new Exception($"nameof{bitVector} not cleared!");
+                    }
+                }
+                
+                #endif
+                @this.Clear(false);
             }
         }
 
