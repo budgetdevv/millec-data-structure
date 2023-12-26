@@ -8,7 +8,7 @@ namespace MILLEC
     public unsafe struct MILLEC<T>
     {
         internal T[] _itemsArr;
-        internal byte[] _bitVecsArr;
+        internal byte[] _bitVectorsArr;
         internal int _count, _highestTouchedIndex;
         private FreeSlot _firstFreeSlot;
 
@@ -51,7 +51,7 @@ namespace MILLEC
             
             _itemsArr = Allocate<T>(size, true);
 
-            _bitVecsArr = AllocateBitArray(size);
+            _bitVectorsArr = AllocateBitArray(size);
 
             _count = 0;
 
@@ -187,7 +187,7 @@ namespace MILLEC
         {
             get
             {
-                ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVecsArr), index, out _);
+                ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, out _);
                     
                 return ref new ItemsArrayInterfacer(_itemsArr)[index];
             }
@@ -236,7 +236,7 @@ namespace MILLEC
             
             var oldArr = _itemsArr;
 
-            var oldBitArray = _bitVecsArr;
+            var oldBitArray = _bitVectorsArr;
 
             var oldSize = oldArr.Length;
 
@@ -244,7 +244,7 @@ namespace MILLEC
             
             var newArr= _itemsArr = Allocate<T>(newSize, true);
 
-            var newBitArray = _bitVecsArr = AllocateBitArray(newSize);
+            var newBitArray = _bitVectorsArr = AllocateBitArray(newSize);
             
             oldArr.AsSpan().CopyTo(newArr);
             oldBitArray.AsSpan().CopyTo(newBitArray);
@@ -328,12 +328,12 @@ namespace MILLEC
             
             WriteToSlotAndSetCorrespondingBit:
             slot = item;
-            new BitInterfacer(new BitVectorsArrayInterfacer(_bitVecsArr), writeIndex).Set();
+            new BitInterfacer(new BitVectorsArrayInterfacer(_bitVectorsArr), writeIndex).Set();
         }
 
         public void RemoveAt(int index)
         {
-            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVecsArr), index, out var bitInterfacer);
+            ValidateItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), index, out var bitInterfacer);
             
             var newCount = _count - 1;
             
@@ -385,7 +385,7 @@ namespace MILLEC
                     // We already clear set bit via bitInterfacer.Clear();
                     // At this point, the BitVectorArr is guaranteed to be all cleared.
                     #if DEBUG
-                    foreach (var bitVector in @this._bitVecsArr)
+                    foreach (var bitVector in @this._bitVectorsArr)
                     {
                         if (bitVector != 0)
                         {
@@ -405,7 +405,7 @@ namespace MILLEC
             _firstFreeSlot = new FreeSlot();
             _count = 0;
             _highestTouchedIndex = DEFAULT_HIGHEST_TOUCHED_INDEX;
-            _bitVecsArr.AsSpan().Clear();
+            _bitVectorsArr.AsSpan().Clear();
             
             // We don't have to clear ItemsArr, as it is not possible for a slot to become "free" without
             // writing to it prior ( Via Add() )
@@ -472,7 +472,7 @@ namespace MILLEC
 
         public Enumerator GetEnumerator()
         {
-            return new Enumerator(new ItemsArrayInterfacer(_itemsArr), new BitVectorsArrayInterfacer(_bitVecsArr));
+            return new Enumerator(new ItemsArrayInterfacer(_itemsArr), new BitVectorsArrayInterfacer(_bitVectorsArr));
         }
     }
 }
