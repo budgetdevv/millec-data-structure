@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace MILLEC
 {
+    [StructLayout(LayoutKind.Auto)]
     public unsafe struct MILLEC<T>
     {
         internal T[] _itemsArr;
