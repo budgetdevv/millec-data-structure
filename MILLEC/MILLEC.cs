@@ -376,18 +376,24 @@ namespace MILLEC
             {
                 ref var currentFreeSlotIndex = ref lastOffsetByOne;
 
-                do // Check for adjacent free slots at the end, and reclaim them.
+                while (true) // Check for adjacent free slots at the end, and reclaim them.
                 {
                     currentFreeSlotIndex = ref Unsafe.Subtract(ref currentFreeSlotIndex, 1);
-                
-                    if (highestTouched - currentFreeSlotIndex == 1)
-                    {
-                        highestTouched = currentFreeSlotIndex;
-                        continue;
-                    }
 
+                    if (!Unsafe.IsAddressLessThan(ref currentFreeSlotIndex, ref first))
+                    {
+                        if (highestTouched == currentFreeSlotIndex)
+                        {
+                            // We can actually convert current free slot into non-live slot.
+                            // Hence, the highestTouchedIndex becomes that of the previous slot's
+                            // ( Previous as in, the one adjacent to its left )
+                            highestTouched = currentFreeSlotIndex - 1;
+                            continue;
+                        }
+                    }
+                    
                     break;
-                } while (!Unsafe.IsAddressLessThan(ref currentFreeSlotIndex, ref first));
+                }
                 
                 // Unconditionally write highestTouched, regardless of whether it has changed or not
                 _highestTouchedIndex = highestTouched;
