@@ -173,11 +173,6 @@ namespace MILLEC
 
                 // Get its value.
                 CurrentBitVectorValue = CurrentBitVector;
-
-                if (!UseTZCNT())
-                {
-                    AdvanceBoundary();
-                }
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -190,18 +185,13 @@ namespace MILLEC
             private void AdvanceBoundary()
             {
                 CurrentItemBoundaryStart = ref Unsafe.Add(ref CurrentItemBoundaryStart, BYTE_BIT_COUNT);
+                CurrentBitVector = ref Unsafe.Add(ref CurrentBitVector, 1);
+                // Read out CurrentBitVector's value
+                CurrentBitVectorValue = CurrentBitVector;
             }
             
             public bool MoveNext()
             {
-                // // This works regardless of UseTZCNT() value, due to the following reasons:
-                // // For useTZCNT == false, CurrentBitVectorValue == 0 indicates that we ran out of set bits, so we should
-                // // advance to next boundary.
-                // // For useTZCNT == true, CurrentBitVectorValue == 0 will never be true as CurrentBitVectorValue will be 1.
-                // // For useTZCNT == true, Unsafe.AreSame(ref CurrentItem, ref CurrentItemBoundaryStart) == true would mean
-                // // that we are at next boundary.
-                // var shouldAdvanceToNextBoundary = CurrentBitVectorValue == 0 || Unsafe.AreSame(ref CurrentItem, ref CurrentItemBoundaryStart);
-                
                 Start:
                 var useTZCNT = UseTZCNT();
                 
@@ -210,7 +200,7 @@ namespace MILLEC
                     if (CurrentBitVectorValue == 0)
                     {
                         // Forward jump to favor hot path.
-                        goto NextBoundaryUseTZCNT;
+                        goto NextBoundary;
                     }
 
                     var index = BitOperations.TrailingZeroCount(CurrentBitVectorValue);
@@ -225,7 +215,7 @@ namespace MILLEC
 
                 else
                 {
-                    if (Unsafe.AreSame(ref CurrentItem, ref CurrentItemBoundaryStart))
+                    if (IndexOfItemRef(ref CurrentItemBoundaryStart, ref CurrentItem) == BYTE_BIT_COUNT)
                     {
                         // Forward jump to favor hot path.
                         goto NextBoundary;
@@ -236,20 +226,16 @@ namespace MILLEC
                     return true; // No reason to merge return paths for both, it is an additional jump.
                 }
                 
-                NextBoundaryUseTZCNT:
-                AdvanceBoundary();
                 NextBoundary:
-                // Regardless of UseTZCNT value, we need to advance CurrentBitVector.
-                CurrentBitVector = ref Unsafe.Add(ref CurrentBitVector, 1);
+                AdvanceBoundary();
                 
                 var shouldMoveNext = !Unsafe.AreSame(ref CurrentItemBoundaryStart, ref LastItemOffsetByOne);
                 
-                // This branch will be predicted taken, as the forward jump to return shouldMoveNext is predicted NOT
-                // taken. This is only relevant for static branch prediction, when there's no branch data.
+                // This branch will be predicted taken, as the backward jump predicted taken.
+                // This is only relevant for static branch prediction, when there's no branch data.
+                // Even then, goto Start should be happening for most part, so branch prediction data will favor it.
                 if (shouldMoveNext)
                 {
-                    // Read out
-                    CurrentBitVectorValue = CurrentBitVector;
                     goto Start;
                 }
 
