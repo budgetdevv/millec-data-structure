@@ -4,11 +4,14 @@ namespace Tests.Data
 {
     internal static class MILLECTestHelpers
     {
-        public static MILLEC<int> New(int itemCount, int capacity)
+        public static MILLEC<int, MILLECDefaultOptions<int>> New(int itemCount, int capacity)
         {
-            var millec = new MILLEC<int>(capacity);
+            var millec = new  MILLEC<int, MILLECDefaultOptions<int>>(capacity);
+
             for (int i = 0; i < itemCount; i++)
+            {
                 millec.Add(i);
+            }
 
             return millec;
         }

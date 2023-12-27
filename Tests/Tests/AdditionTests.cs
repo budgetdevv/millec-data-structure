@@ -16,7 +16,7 @@ public class AdditionTests
     [TestCase(8)]
     public void ItemCountIsValidDuringIterativeAdditions(int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
         for (int i = 0; i < capacity; i++)
         {
             millec.Add(777);
@@ -32,7 +32,7 @@ public class AdditionTests
     [TestCase(8, 8)]
     public void AfterAddingItems_IndexerAccessibilityMatchesAvailabilityOfSlot(int itemCount, int capacity)
     {
-        var millec = new MILLEC<int>(8);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: 8);
         List<int> addedPositions = new List<int>();
         for (int i = 0; i < itemCount; i++)
         {
@@ -57,7 +57,8 @@ public class AdditionTests
     [TestCase(8, 8)]
     public void AfterAddingItems_EnumerationByRefReturnsCorrectValueForEachRemainingItem(int itemCount, int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
+        
         for (int i = 0; i < itemCount; i++)
         {
             millec.Add(777 + i);
@@ -79,7 +80,8 @@ public class AdditionTests
     [TestCase(8, 8)]
     public void AfterAddingItems_EnumerationOfIndicesReturnsCorrectValueForEachRemainingItemIndex(int itemCount, int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
+        
         for (int i = 0; i < itemCount; i++)
         {
             millec.Add(777 + i);

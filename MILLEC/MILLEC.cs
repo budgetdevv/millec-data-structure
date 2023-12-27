@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace MILLEC
 {
     [StructLayout(LayoutKind.Auto)]
-    public unsafe partial struct MILLEC<ItemT>
+    public unsafe partial struct MILLEC<ItemT, OptsT>
     {
         internal ItemT[] _itemsArr;
         internal byte[] _bitVectorsArr;
@@ -302,7 +302,7 @@ namespace MILLEC
             return;
             
             [MethodImpl(MethodImplOptions.NoInlining)]
-            void Empty(ref MILLEC<ItemT> @this)
+            void Empty(ref MILLEC<ItemT, OptsT> @this)
             {
                 Debug.Assert(@this._count == 0);
                 
@@ -370,7 +370,7 @@ namespace MILLEC
             return;
             
             [MethodImpl(MethodImplOptions.NoInlining)]
-            void Empty(ref MILLEC<ItemT> @this)
+            void Empty(ref MILLEC<ItemT, OptsT> @this)
             {
                 Debug.Assert(@this._count == 0);
                 

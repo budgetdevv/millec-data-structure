@@ -2,28 +2,28 @@
 {
     public static class MILLEC_DebuggingExtensions
     {
-        public static T[] GetItemsArray<T>(ref this MILLEC<T> instance)
+        public static ItemT[] GetItemsArray<ItemT, OptsT>(ref this MILLEC<ItemT, OptsT> instance) where OptsT : IMILLECOptions<ItemT>
         {
             return instance._itemsArr;
         }
 
-        public static byte[] GetBitVectorsArr<T>(ref this MILLEC<T> instance)
+        public static byte[] GetBitVectorsArr<ItemT, OptsT>(ref this MILLEC<ItemT, OptsT> instance) where OptsT : IMILLECOptions<ItemT>
         {
             return instance._bitVectorsArr;
         }
 
-        public static int GetHighestTouchedIndex<T>(ref this MILLEC<T> instance)
+        public static int GetHighestTouchedIndex<ItemT, OptsT>(ref this MILLEC<ItemT, OptsT> instance) where OptsT : IMILLECOptions<ItemT>
         {
             return instance._highestTouchedIndex;
         }
     
-        public ref struct TestIndicesEnumerator<T>
+        public ref struct TestIndicesEnumerator<ItemT, OptsT> where OptsT : IMILLECOptions<ItemT>
         {
             // This field is used for debugging.
             // ReSharper disable once NotAccessedField.Local
-            private readonly ref MILLEC<T> List;
+            private readonly ref MILLEC<ItemT, OptsT> List;
 
-            private readonly MILLEC<T>.BitVectorsArrayInterfacer BitArrayInterfacer;
+            private readonly MILLEC<ItemT, OptsT>.BitVectorsArrayInterfacer BitArrayInterfacer;
 
             private readonly int HighestTouchedIndex;
 
@@ -32,10 +32,10 @@
             // ReSharper disable once ConvertToAutoPropertyWhenPossible
             public int Current => CurrentItemIndex;
           
-            public TestIndicesEnumerator(ref MILLEC<T> list)
+            public TestIndicesEnumerator(ref MILLEC<ItemT, OptsT> list)
             {
                 List = ref list;
-                BitArrayInterfacer = new MILLEC<T>.BitVectorsArrayInterfacer(list._bitVectorsArr);
+                BitArrayInterfacer = new MILLEC<ItemT, OptsT>.BitVectorsArrayInterfacer(list._bitVectorsArr);
                 CurrentItemIndex = -1;
                 HighestTouchedIndex = list._highestTouchedIndex;
             }
@@ -52,7 +52,7 @@
                         return false;
                     }
 
-                    if (!new MILLEC<T>.BitInterfacer(BitArrayInterfacer, CurrentItemIndex).IsSet)
+                    if (!new MILLEC<ItemT, OptsT>.BitInterfacer(BitArrayInterfacer, CurrentItemIndex).IsSet)
                     {
                         continue;
                     }
@@ -61,15 +61,15 @@
                 }
             }
 
-            public TestIndicesEnumerator<T> GetEnumerator()
+            public TestIndicesEnumerator<ItemT, OptsT> GetEnumerator()
             {
                 return this;
             }
         }
     
-        public static TestIndicesEnumerator<T> GetTestIndicesEnumerator<T>(ref this MILLEC<T> instance)
+        public static TestIndicesEnumerator<ItemT, OptsT> GetTestIndicesEnumerator<ItemT, OptsT>(ref this MILLEC<ItemT, OptsT> instance) where OptsT : IMILLECOptions<ItemT>
         {
-            return new TestIndicesEnumerator<T>(ref instance);
+            return new TestIndicesEnumerator<ItemT, OptsT>(ref instance);
         }
     }
 }

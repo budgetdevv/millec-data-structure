@@ -11,7 +11,7 @@ public class UntouchedMillecTests
     [Test]
     public void NewMillecHasZeroItemCount()
     {
-        var millec = new MILLEC<int>(5);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: 8);
         millec.Count.Should().Be(0);
     }
 
@@ -21,7 +21,7 @@ public class UntouchedMillecTests
     [TestCase(8)]
     public void IndexedAccessToUntouchedSlotsShouldError(int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
 
         for (int i = 0; i < capacity; i++)
             MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[i]; });
@@ -33,7 +33,7 @@ public class UntouchedMillecTests
     [TestCase(8)]
     public void IndexedAccessOutOfBoundsShouldError(int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
         MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[-1]; });
         MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[capacity]; });
     }
@@ -44,7 +44,7 @@ public class UntouchedMillecTests
     [TestCase(8)]
     public void ByRefEnumerationReturnsZeroItems(int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
         foreach (ref var x in millec)
             throw new Exception("This exception should not occur because there are no items to enumerator.");
     }
@@ -55,7 +55,7 @@ public class UntouchedMillecTests
     [TestCase(8)]
     public void IndexEnumerationReturnsZeroItems(int capacity)
     {
-        var millec = new MILLEC<int>(capacity);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: capacity);
         foreach (int idx in millec)
             throw new Exception("This exception should not occur because there are no items to enumerator.");
     }

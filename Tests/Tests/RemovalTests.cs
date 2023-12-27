@@ -136,7 +136,7 @@ public class RemovalTests
     {
         const int SIZE = 8;
         
-        var millec = new MILLEC<int>(size: SIZE);
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: SIZE);
         var random = new Random();
 
         var indexValueMap = new Dictionary<int, int>(SIZE);
@@ -198,7 +198,8 @@ public class RemovalTests
     public void AfterRemovingItems_EnumerationOfIndicesReturnsCorrectValueForEachRemainingItemIndex(int itemCount, int[] removeTheseIndices)
     {
         const int SIZE = 8;
-        var millec = new MILLEC<int>(size: SIZE);
+        
+        var millec = MILLECTestHelpers.New(itemCount: 0, capacity: SIZE);
         var random = new Random();
         var currentRemovedIndices = new HashSet<int>(removeTheseIndices.Length);
         var indexValueMap = new Dictionary<int, int>(SIZE);

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace MILLEC
 {
-    public unsafe partial struct MILLEC<ItemT>
+    public unsafe partial struct MILLEC<ItemT, OptsT> where OptsT: IMILLECOptions<ItemT>
     {
         internal readonly ref struct BitVectorsArrayInterfacer
         {
@@ -178,7 +178,7 @@ namespace MILLEC
             
             public ref ItemT Current => ref CurrentItem;
 
-            internal ItemsEnumerator(ref MILLEC<ItemT> list)
+            internal ItemsEnumerator(ref MILLEC<ItemT, OptsT> list)
             {
                 var itemsArrInterfacer = new ItemsArrayInterfacer(list._itemsArr);
                 // MoveNext() is always called before the first iteration
@@ -339,7 +339,7 @@ namespace MILLEC
             public FreeSlotInterfacer Current => FreeSlotInterfacer;
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal FreeSlotEnumerator(ref MILLEC<ItemT> list)
+            internal FreeSlotEnumerator(ref MILLEC<ItemT, OptsT> list)
             {
                 FreeSlotInterfacer.CurrentFreeSlot = ref list._firstFreeSlot;
                 ItemsArrInterfacer = new ItemsArrayInterfacer(list._itemsArr);
