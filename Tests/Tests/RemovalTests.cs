@@ -134,23 +134,37 @@ public class RemovalTests
     [TestCase(4, new int[] { 2, 1, 0 })]
     public void AfterRemovingItems_EnumerationByRefReturnsCorrectValueForEachRemainingItem(int itemCount, int[] removeTheseIndices)
     {
-        var millec = new MILLEC<int>(size: 8);
-        for (int i = 0; i < itemCount; i++)
-            millec.Add(777 + i);
+        const int SIZE = 8;
+        
+        var millec = new MILLEC<int>(size: SIZE);
+        var random = new Random();
 
-        List<int> removedPositions = new List<int>();
-        for (int i = 0; i < removeTheseIndices.Length; i++)
+        var indexValueMap = new Dictionary<int, int>(SIZE);
+
+        for (int index = 0; index < itemCount; index++)
         {
-            millec.RemoveAt(i);
-            removedPositions.Add(i);
+            var val = random.Next();
+            millec.Add(val);
+            indexValueMap[index] = val;
+        }
 
-            int j = 0;
-            foreach (ref var x in millec)
+        var currentRemovedIndices = new HashSet<int>(removeTheseIndices.Length);
+
+        var itemIndexCalculator = millec.GetItemIndexCalculator();
+        
+        foreach (var removedIndex in removeTheseIndices)
+        {
+            millec.RemoveAt(removedIndex);
+            currentRemovedIndices.Add(removedIndex).Should().BeTrue();
+            
+            foreach (ref var item in millec)
             {
-                if (!removedPositions.Contains(j))
-                    x.Should().Be(777 + j);
-
-                j++;
+                var itemIndex = itemIndexCalculator.GetIndexOfItemRef(ref item);
+                
+                if (!currentRemovedIndices.Contains(itemIndex))
+                {
+                    indexValueMap[itemIndex].Should().Be(item);
+                }
             }
         }
     }
@@ -183,25 +197,28 @@ public class RemovalTests
     [TestCase(4, new int[] { 2, 1, 0 })]
     public void AfterRemovingItems_EnumerationOfIndicesReturnsCorrectValueForEachRemainingItemIndex(int itemCount, int[] removeTheseIndices)
     {
-        var millec = new MILLEC<int>(size: 8);
-        for (int i = 0; i < itemCount; i++)
-            millec.Add(777 + i);
+        const int SIZE = 8;
+        var millec = new MILLEC<int>(size: SIZE);
+        var random = new Random();
+        var currentRemovedIndices = new HashSet<int>(removeTheseIndices.Length);
+        var indexValueMap = new Dictionary<int, int>(SIZE);
 
-        List<int> removedPositions = new List<int>();
-        for (int i = 0; i < removeTheseIndices.Length; i++)
+        for (int index = 0; index < itemCount; index++)
         {
-            millec.RemoveAt(i);
-            removedPositions.Add(i);
+            var val = random.Next();
+            millec.Add(val);
+            indexValueMap.Add(index, val);
+        }
 
-            //Enumerate millec item indices and confirm indexer returns expected item value.
-            //We make use of 'j', because j represents known values from millec.Add() loop
-            int j = 0;
-            foreach (int idx in millec.GetTestIndicesEnumerator())
+        foreach (var removedIndex in removeTheseIndices)
+        {
+            millec.RemoveAt(removedIndex);
+            currentRemovedIndices.Add(removedIndex).Should().BeTrue();
+            
+            foreach (var presentIndex in millec.GetTestIndicesEnumerator())
             {
-                if (!removedPositions.Contains(j))
-                    millec[idx].Should().Be(777 + j);
-
-                j++;
+                currentRemovedIndices.Contains(presentIndex).Should().BeFalse();
+                millec[presentIndex].Should().Be(indexValueMap[presentIndex]);
             }
         }
     }
