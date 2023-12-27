@@ -171,8 +171,7 @@ namespace MILLEC
                 
                 CurrentBitVector = ref new BitVectorsArrayInterfacer(list._bitVectorsArr).FirstItem;
 
-                // Get its value.
-                CurrentBitVectorValue = CurrentBitVector;
+                Prep();
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -211,23 +210,26 @@ namespace MILLEC
 
                     var index = BitOperations.TrailingZeroCount(CurrentBitVectorValue);
                     
+                    CurrentItem = ref Unsafe.Add(ref CurrentItemBoundaryStart, index);
+                    
                     // Mask off current bit.
                     CurrentBitVectorValue = unchecked((byte) (CurrentBitVectorValue & ~(1 << index)));
-                    
-                    CurrentItem = ref Unsafe.Add(ref CurrentItemBoundaryStart, index);
                     
                     return true; // No reason to merge return paths for both, it is an additional jump.
                 }
 
                 else
                 {
-                    if (IndexOfItemRef(ref CurrentItemBoundaryStart, ref CurrentItem) == BYTE_BIT_COUNT)
+                    // Prep() sets CurrentItem to be CurrentItemBoundaryStart - 1
+                    CurrentItem = ref Unsafe.Add(ref CurrentItem, 1);
+                    
+                    var index = IndexOfItemRef(ref CurrentItemBoundaryStart, ref CurrentItem);
+                    
+                    if (index == BYTE_BIT_COUNT)
                     {
                         // Forward jump to favor hot path.
                         goto NextBoundary;
                     }
-
-                    CurrentItem = ref Unsafe.Add(ref CurrentItem, 1);
                     
                     return true; // No reason to merge return paths for both, it is an additional jump.
                 }
