@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using FluentAssertions;
 using MILLEC;
+using Tests.Data;
 
 namespace Tests.Tests;
 
@@ -43,7 +44,7 @@ public class AdditionTests
                 if (addedPositions.Contains(j))
                     Assert.DoesNotThrow(() => { int x = millec[j]; });
                 else
-                    Assert.Throws<Exception>(() => { int x = millec[j]; });
+                    MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[j]; });
             }
         }
     }

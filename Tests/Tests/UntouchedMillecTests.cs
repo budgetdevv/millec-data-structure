@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using FluentAssertions;
 using MILLEC;
+using Tests.Data;
 
 namespace Tests.Tests;
 
@@ -23,7 +24,7 @@ public class UntouchedMillecTests
         var millec = new MILLEC<int>(capacity);
 
         for (int i = 0; i < capacity; i++)
-            Assert.Throws<Exception>(() => { int x = millec[i]; });
+            MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[i]; });
     }
 
     [Test]
@@ -33,8 +34,8 @@ public class UntouchedMillecTests
     public void IndexedAccessOutOfBoundsShouldError(int capacity)
     {
         var millec = new MILLEC<int>(capacity);
-        Assert.Throws<Exception>(() => { int x = millec[-1]; });
-        Assert.Throws<Exception>(() => { int x = millec[capacity]; });
+        MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[-1]; });
+        MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[capacity]; });
     }
 
     [Test]

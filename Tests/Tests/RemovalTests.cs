@@ -15,7 +15,7 @@ public class RemovalTests
     [TestCase(8)]
     public void ItemCountIsValidDuringIterativeRemoval(int capacity)
     {
-        var millec = TestMillec.New(capacity, capacity: 8);
+        var millec = MILLECTestHelpers.New(capacity, capacity: 8);
 
         for (int i = 0; i < capacity; i++)
         {
@@ -52,18 +52,18 @@ public class RemovalTests
     [TestCase(4, new int[] { 2, 1, 0 })]
     public void AfterRemovingItems_IndexedAccessibilityMatchesAvailabilityOfSlot(int itemCount, int[] removeTheseIndices)
     {
-        var millec = TestMillec.New(itemCount, capacity: 8);
+        var millec = MILLECTestHelpers.New(itemCount, capacity: 8);
         List<int> removedPositions = new List<int>();
         for (int i = 0; i < removeTheseIndices.Length; i++)
         {
             millec.RemoveAt(i);
             removedPositions.Add(i);
-            Assert.Throws<Exception>(() => { int x = millec[i]; });
+            MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[i]; });
 
             for (int j = 0; j < itemCount; j++)
             {
                 if (removedPositions.Contains(j))
-                    Assert.Throws<Exception>(() => { int x = millec[j]; });
+                    MILLECTestHelpers.AssertThrows<Exception>(() => { int x = millec[j]; });
                 else
                     Assert.DoesNotThrow(() => { int x = millec[j]; });
             }
@@ -98,7 +98,7 @@ public class RemovalTests
     [TestCase(4, new int[] { 2, 1, 0 })]
     public void ItemCountIsValidDuringRandomRemovals(int itemCount, int[] removeTheseIndices)
     {
-        var millec = TestMillec.New(itemCount, capacity: 8);
+        var millec = MILLECTestHelpers.New(itemCount, capacity: 8);
         for (int i = 0; i < removeTheseIndices.Length; i++)
         {
             millec.RemoveAt(i);
