@@ -153,7 +153,7 @@ namespace MILLEC
             // 2) Representation of remaining set bits if we are using tzcnt.
             private byte CurrentBitVectorValue;
             
-            public ref T Current => ref CurrentItemBoundaryStart;
+            public ref T Current => ref CurrentItem;
 
             internal ItemsEnumerator(ref MILLEC<T> list)
             {
