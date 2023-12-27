@@ -24,21 +24,16 @@ namespace MILLEC
 
         // Allow skipInit to be constant-folded
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static AllocateT[] Allocate<AllocateT>(int size, bool skipInit)
+        private static AllocateT[] Allocate<AllocateT>(int size, bool skipInit, bool allocateOnPOH)
         {
-            // We will allocate the BitVectorsArr on POH. In the future, this will enable us to use aligned SIMD instructions
-            // We also try to allocate ItemsArr on POH, for better memory locality
-
-            var shouldAllocateOnPOH = !RuntimeHelpers.IsReferenceOrContainsReferences<ItemT>();
-            
             if (skipInit)
             {
-                return GC.AllocateUninitializedArray<AllocateT>(size, shouldAllocateOnPOH);
+                return GC.AllocateUninitializedArray<AllocateT>(size, allocateOnPOH);
             }
 
             else
             {
-                return GC.AllocateArray<AllocateT>(size, shouldAllocateOnPOH);
+                return GC.AllocateArray<AllocateT>(size, allocateOnPOH);
             }
         }
 
@@ -74,7 +69,7 @@ namespace MILLEC
             
             Debug.Assert(size % BYTE_BIT_COUNT == 0);
             
-            _itemsArr = Allocate<ItemT>(size, true);
+            _itemsArr = AllocateItemArray(size);
 
             _bitVectorsArr = AllocateBitArray(size);
 
@@ -85,6 +80,13 @@ namespace MILLEC
             _firstFreeSlot = new FreeSlot();
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ItemT[] AllocateItemArray(int countOfT)
+        {
+            return Allocate<ItemT>(countOfT, !OptsT.ZeroInitialize(), OptsT.AllocateItemsOnPinnedObjectHeap());
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte[] AllocateBitArray(int countOfT)
         {
             // TODO: This needs to be revisited if we ever impl SIMD
@@ -100,7 +102,7 @@ namespace MILLEC
             
             // Byte is unmanaged, and therefore will always be pinned
             // We want it to be zero-initialized, since a set bit of 1 indicates that a slot is not empty.
-            return Allocate<byte>(size, false);
+            return Allocate<byte>(size, false, OptsT.AllocateItemsOnPinnedObjectHeap());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -167,7 +169,7 @@ namespace MILLEC
             // oldSize will never be < BYTE_BIT_COUNT. A multiple of BYTE_BIT_COUNT multiplied by 2 is still a multiple of BYTE_BIT_COUNT
             var newSize = oldSize * 2;
             
-            var newArr= _itemsArr = Allocate<ItemT>(newSize, true);
+            var newArr= _itemsArr = AllocateItemArray(newSize);
 
             var newBitArray = _bitVectorsArr = AllocateBitArray(newSize);
             
@@ -391,20 +393,18 @@ namespace MILLEC
 
         private struct EquatableItem: IEquatable<EquatableItem>
         {
-            private static readonly EqualityComparer<EquatableItem> Comparer;
-            
             public ItemT Item;
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool Equals(EquatableItem other)
             {
-                return Comparer.Equals(this, other);
+                return OptsT.ItemEquals(ref Item, ref other.Item);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public override int GetHashCode()
             {
-                return Comparer.GetHashCode(this);
+                return OptsT.GetHashCode(ref Item);
             }
         }
         
