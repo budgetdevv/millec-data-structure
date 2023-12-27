@@ -103,6 +103,29 @@ namespace MILLEC
                 return IndexOfItemRef(ref FirstItem, ref slot);
             }
         }
+
+        public readonly ref struct ItemIndexCalculator
+        {
+            private readonly ItemsArrayInterfacer ItemsArrInterfacer;
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal ItemIndexCalculator(ItemsArrayInterfacer itemsArrInterfacer)
+            {
+                ItemsArrInterfacer = itemsArrInterfacer;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public int GetIndexOfItemRef(ref T item)
+            {
+                return IndexOfItemRef(ref ItemsArrInterfacer.FirstItem, ref item);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ItemIndexCalculator GetItemIndexCalculator()
+        {
+            return new ItemIndexCalculator(new ItemsArrayInterfacer(_itemsArr));
+        }
         
         internal struct FreeSlot
         {
