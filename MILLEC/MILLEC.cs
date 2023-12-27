@@ -6,9 +6,9 @@ using System.Runtime.InteropServices;
 namespace MILLEC
 {
     [StructLayout(LayoutKind.Auto)]
-    public unsafe partial struct MILLEC<T>
+    public unsafe partial struct MILLEC<ItemT>
     {
-        internal T[] _itemsArr;
+        internal ItemT[] _itemsArr;
         internal byte[] _bitVectorsArr;
         internal int _count, _highestTouchedIndex;
         private FreeSlot _firstFreeSlot;
@@ -29,7 +29,7 @@ namespace MILLEC
             // We will allocate the BitVectorsArr on POH. In the future, this will enable us to use aligned SIMD instructions
             // We also try to allocate ItemsArr on POH, for better memory locality
 
-            var shouldAllocateOnPOH = !RuntimeHelpers.IsReferenceOrContainsReferences<T>();
+            var shouldAllocateOnPOH = !RuntimeHelpers.IsReferenceOrContainsReferences<ItemT>();
             
             if (skipInit)
             {
@@ -61,7 +61,7 @@ namespace MILLEC
         
         public MILLEC(int size)
         {
-            if (RuntimeHelpers.IsReferenceOrContainsReferences<T>() || sizeof(T) < sizeof(int))
+            if (RuntimeHelpers.IsReferenceOrContainsReferences<ItemT>() || sizeof(ItemT) < sizeof(int))
             {
                 throw new NotImplementedException("We need to add support for managed Ts");
             }
@@ -74,7 +74,7 @@ namespace MILLEC
             
             Debug.Assert(size % BYTE_BIT_COUNT == 0);
             
-            _itemsArr = Allocate<T>(size, true);
+            _itemsArr = Allocate<ItemT>(size, true);
 
             _bitVectorsArr = AllocateBitArray(size);
 
@@ -140,7 +140,7 @@ namespace MILLEC
         }
         
         
-        public ref T this[int index]
+        public ref ItemT this[int index]
         {
             get
             {
@@ -153,7 +153,7 @@ namespace MILLEC
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)] // Don't pollute hot path
-        private ref T ResizeAdd()
+        private ref ItemT ResizeAdd()
         {
             // We incremented Count beforehand
             var writeIndex = _count - 1;
@@ -167,7 +167,7 @@ namespace MILLEC
             // oldSize will never be < BYTE_BIT_COUNT. A multiple of BYTE_BIT_COUNT multiplied by 2 is still a multiple of BYTE_BIT_COUNT
             var newSize = oldSize * 2;
             
-            var newArr= _itemsArr = Allocate<T>(newSize, true);
+            var newArr= _itemsArr = Allocate<ItemT>(newSize, true);
 
             var newBitArray = _bitVectorsArr = AllocateBitArray(newSize);
             
@@ -182,7 +182,7 @@ namespace MILLEC
             return ref new ItemsArrayInterfacer(newArr)[writeIndex];
         }
 
-        public void Add(T item)
+        public void Add(ItemT item)
         {
             // We take the value of Count before the increment, which is also the writeIndex
             var writeIndex = _count++;
@@ -221,7 +221,7 @@ namespace MILLEC
             goto WriteToSlotAndSetCorrespondingBit;
         }
 
-        public ref T UnsafeAddUninitializedSlot()
+        public ref ItemT UnsafeAddUninitializedSlot()
         {
             // We take the value of Count before the increment, which is also the writeIndex
             var writeIndex = _count++;
@@ -302,7 +302,7 @@ namespace MILLEC
             return;
             
             [MethodImpl(MethodImplOptions.NoInlining)]
-            void Empty(ref MILLEC<T> @this)
+            void Empty(ref MILLEC<ItemT> @this)
             {
                 Debug.Assert(@this._count == 0);
                 
@@ -323,7 +323,7 @@ namespace MILLEC
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization and skipValidation to be constant-folded.
-        public void RemoveAt(int index, out T removedItem, bool performDecrementHighestTouchedOptimization = true, bool skipValidation = false)
+        public void RemoveAt(int index, out ItemT removedItem, bool performDecrementHighestTouchedOptimization = true, bool skipValidation = false)
         {
             var itemsArr = _itemsArr;
 
@@ -370,7 +370,7 @@ namespace MILLEC
             return;
             
             [MethodImpl(MethodImplOptions.NoInlining)]
-            void Empty(ref MILLEC<T> @this)
+            void Empty(ref MILLEC<ItemT> @this)
             {
                 Debug.Assert(@this._count == 0);
                 
@@ -393,7 +393,7 @@ namespace MILLEC
         {
             private static readonly EqualityComparer<EquatableItem> Comparer;
             
-            public T Item;
+            public ItemT Item;
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool Equals(EquatableItem other)
@@ -409,13 +409,13 @@ namespace MILLEC
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization to be constant-folded.
-        public bool TryRemoveItem(T item, bool performDecrementHighestTouchedOptimization = true)
+        public bool TryRemoveItem(ItemT item, bool performDecrementHighestTouchedOptimization = true)
         {
-            var itemReinterpreted = Unsafe.As<T, EquatableItem>(ref item);
+            var itemReinterpreted = Unsafe.As<ItemT, EquatableItem>(ref item);
 
             var itemsArr = _itemsArr;
             
-            var span = MemoryMarshal.CreateSpan(ref Unsafe.As<T, EquatableItem>(ref new ItemsArrayInterfacer(itemsArr).FirstItem), TouchedSlotsCount);
+            var span = MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, EquatableItem>(ref new ItemsArrayInterfacer(itemsArr).FirstItem), TouchedSlotsCount);
 
             var indexOfItem = span.IndexOf(itemReinterpreted);
             
@@ -442,22 +442,22 @@ namespace MILLEC
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T UnsafeGetFirstItemReference()
+        public ref ItemT UnsafeGetFirstItemReference()
         {
             return ref new ItemsArrayInterfacer(_itemsArr).FirstItem;
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T UnsafeGetItemReference(int index)
+        public ref ItemT UnsafeGetItemReference(int index)
         {
             return ref new ItemsArrayInterfacer(_itemsArr)[index];
         }
 
         // ref T instead of ArrayItemsInterfacer, as Enumerator does not store ArrayItemsInterfacer.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int IndexOfItemRef(ref T firstItem, ref T item)
+        private static int IndexOfItemRef(ref ItemT firstItem, ref ItemT item)
         {
-            return IndexOfRef<T>(ref firstItem, ref item);
+            return IndexOfRef<ItemT>(ref firstItem, ref item);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

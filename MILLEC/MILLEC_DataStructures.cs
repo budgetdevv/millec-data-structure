@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace MILLEC
 {
-    public unsafe partial struct MILLEC<T>
+    public unsafe partial struct MILLEC<ItemT>
     {
         internal readonly ref struct BitVectorsArrayInterfacer
         {
@@ -65,28 +65,28 @@ namespace MILLEC
         
         internal readonly ref struct ItemsArrayInterfacer
         {
-            public readonly ref T FirstItem;
+            public readonly ref ItemT FirstItem;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public ItemsArrayInterfacer(T[] itemsArr)
+            public ItemsArrayInterfacer(ItemT[] itemsArr)
             {
                 FirstItem = ref MemoryMarshal.GetArrayDataReference(itemsArr);
             }
 
-            public ref T this[int index]
+            public ref ItemT this[int index]
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref Unsafe.Add(ref FirstItem, index);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public ref T GetLastSlotOffsetByOne(T[] itemsArr)
+            public ref ItemT GetLastSlotOffsetByOne(ItemT[] itemsArr)
             {
                 return ref this[itemsArr.Length];
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public ref T GetFirstFreeOrNewSlot(FreeSlot firstFreeSlotFieldValue, ref int newSlotWriteIndex, out bool isNewSlot)
+            public ref ItemT GetFirstFreeOrNewSlot(FreeSlot firstFreeSlotFieldValue, ref int newSlotWriteIndex, out bool isNewSlot)
             {
                 var next = firstFreeSlotFieldValue.Next;
 
@@ -98,7 +98,7 @@ namespace MILLEC
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public int IndexOfSlot(ref T slot)
+            public int IndexOfSlot(ref ItemT slot)
             {
                 return IndexOfItemRef(ref FirstItem, ref slot);
             }
@@ -115,7 +115,7 @@ namespace MILLEC
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public int GetIndexOfItemRef(ref T item)
+            public int GetIndexOfItemRef(ref ItemT item)
             {
                 return IndexOfItemRef(ref ItemsArrInterfacer.FirstItem, ref item);
             }
@@ -145,29 +145,29 @@ namespace MILLEC
                 
                 if (next != NO_NEXT_SLOT_VALUE || skipValidate)
                 {
-                    return ref Unsafe.As<T, FreeSlot>(ref Unsafe.Add(ref itemsArrayInterfacer.FirstItem, next));
+                    return ref Unsafe.As<ItemT, FreeSlot>(ref Unsafe.Add(ref itemsArrayInterfacer.FirstItem, next));
                 }
 
                 return ref Unsafe.NullRef<FreeSlot>();
             }
 
             [UnscopedRef]
-            public ref T ReinterpretAsItem()
+            public ref ItemT ReinterpretAsItem()
             {
-                return ref Unsafe.As<FreeSlot, T>(ref this);
+                return ref Unsafe.As<FreeSlot, ItemT>(ref this);
             }
 
-            public static ref FreeSlot ReinterpretItemAsFreeSlot(ref T item)
+            public static ref FreeSlot ReinterpretItemAsFreeSlot(ref ItemT item)
             {
-                return ref Unsafe.As<T, FreeSlot>(ref item);
+                return ref Unsafe.As<ItemT, FreeSlot>(ref item);
             }
         }
         
         public ref struct ItemsEnumerator
         {
-            private readonly ref T LastItemOffsetByOne;
+            private readonly ref ItemT LastItemOffsetByOne;
             
-            private ref T CurrentItemBoundaryStart, CurrentItem;
+            private ref ItemT CurrentItemBoundaryStart, CurrentItem;
 
             private ref byte CurrentBitVector;
             
@@ -176,9 +176,9 @@ namespace MILLEC
             // 2) Representation of remaining set bits if we are using tzcnt.
             private byte CurrentBitVectorValue;
             
-            public ref T Current => ref CurrentItem;
+            public ref ItemT Current => ref CurrentItem;
 
-            internal ItemsEnumerator(ref MILLEC<T> list)
+            internal ItemsEnumerator(ref MILLEC<ItemT> list)
             {
                 var itemsArrInterfacer = new ItemsArrayInterfacer(list._itemsArr);
                 // MoveNext() is always called before the first iteration
@@ -287,7 +287,7 @@ namespace MILLEC
             internal ref FreeSlot CurrentFreeSlot;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public ref T UnsafeGetItem()
+            public ref ItemT UnsafeGetItem()
             {
                 return ref CurrentFreeSlot.ReinterpretAsItem();
             }
@@ -339,7 +339,7 @@ namespace MILLEC
             public FreeSlotInterfacer Current => FreeSlotInterfacer;
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal FreeSlotEnumerator(ref MILLEC<T> list)
+            internal FreeSlotEnumerator(ref MILLEC<ItemT> list)
             {
                 FreeSlotInterfacer.CurrentFreeSlot = ref list._firstFreeSlot;
                 ItemsArrInterfacer = new ItemsArrayInterfacer(list._itemsArr);
