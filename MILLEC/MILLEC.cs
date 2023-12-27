@@ -42,7 +42,17 @@ namespace MILLEC
             }
         }
 
-        public MILLEC(): this(0) { }
+        public MILLEC(): this(size: BYTE_BIT_COUNT) { }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int RoundToNextMultiple(int num, int multiple)
+        {
+            var rem = num % multiple;
+
+            return rem == 0 ? num : (num - rem + multiple);
+        }
+        
+        private const int BYTE_BIT_COUNT = 8;
         
         public MILLEC(int size)
         {
@@ -50,6 +60,14 @@ namespace MILLEC
             {
                 throw new NotImplementedException("We need to add support for managed Ts");
             }
+
+            // To simplify and optimize ItemsEnumerator, we make _itemsArr.Length a multiple of BYTE_BIT_COUNT
+            size = RoundToNextMultiple(size, BYTE_BIT_COUNT);
+            
+            // It should never be less than, since we round up.
+            Debug.Assert(size >= BYTE_BIT_COUNT);
+            
+            Debug.Assert(size % BYTE_BIT_COUNT == 0);
             
             _itemsArr = Allocate<T>(size, true);
 
@@ -62,16 +80,18 @@ namespace MILLEC
             _firstFreeSlot = new FreeSlot();
         }
         
-        private const int BYTE_BIT_COUNT = 8;
-        
         public static byte[] AllocateBitArray(int countOfT)
         {
             // TODO: This needs to be revisited if we ever impl SIMD
+            int size;
             
-            // TODO: Use DivRem intrinsic
-            var (quotient, remainder) = Math.DivRem(countOfT, BYTE_BIT_COUNT);
-            
-            var size = (remainder == 0) ? quotient : quotient + 1;
+            #if DEBUG
+            (size, var remainder) = Math.DivRem(countOfT, BYTE_BIT_COUNT);
+            // countOfT is guaranteed to be a multiple of BYTE_BIT_COUNT
+            Debug.Assert(remainder == 0);
+            #else
+            size = countOfT / BYTE_BIT_COUNT;
+            #endif
             
             // Byte is unmanaged, and therefore will always be pinned
             // We want it to be zero-initialized, since a set bit of 1 indicates that a slot is not empty.
@@ -88,7 +108,7 @@ namespace MILLEC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow skipValidation to be constant-folded
-        private void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int itemsArrLength, bool skipValidation, out BitInterfacer bitInterfacer)
+        private static void ValidateItemExistsAtIndex(BitVectorsArrayInterfacer bitVectorsArrayInterfacer, int index, int itemsArrLength, bool skipValidation, out BitInterfacer bitInterfacer)
         {
             // TODO: Does JIT optimize branches out?
             if (skipValidation)
@@ -139,7 +159,8 @@ namespace MILLEC
 
             var oldSize = oldArr.Length;
 
-            var newSize = (oldSize == 0) ? 1 : oldSize * 2;
+            // oldSize will never be < BYTE_BIT_COUNT. A multiple of BYTE_BIT_COUNT multiplied by 2 is still a multiple of BYTE_BIT_COUNT
+            var newSize = oldSize * 2;
             
             var newArr= _itemsArr = Allocate<T>(newSize, true);
 
