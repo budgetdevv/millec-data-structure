@@ -186,8 +186,14 @@ namespace MILLEC
             {
                 CurrentItemBoundaryStart = ref Unsafe.Add(ref CurrentItemBoundaryStart, BYTE_BIT_COUNT);
                 CurrentBitVector = ref Unsafe.Add(ref CurrentBitVector, 1);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void Prep()
+            {
                 // Read out CurrentBitVector's value
                 CurrentBitVectorValue = CurrentBitVector;
+                CurrentItem = ref Unsafe.Subtract(ref CurrentItemBoundaryStart, 1);
             }
             
             public bool MoveNext()
@@ -231,11 +237,12 @@ namespace MILLEC
                 
                 var shouldMoveNext = !Unsafe.AreSame(ref CurrentItemBoundaryStart, ref LastItemOffsetByOne);
                 
-                // This branch will be predicted taken, as the backward jump predicted taken.
+                // This branch will be predicted taken, as the forward jump to return shouldMoveNext is predicted NOT taken.
                 // This is only relevant for static branch prediction, when there's no branch data.
                 // Even then, goto Start should be happening for most part, so branch prediction data will favor it.
                 if (shouldMoveNext)
                 {
+                    Prep(); // Do NOT move this before the check, as we might read invalid memory.
                     goto Start;
                 }
 
