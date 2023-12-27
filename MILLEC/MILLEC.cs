@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace MILLEC
 {
@@ -407,17 +408,77 @@ namespace MILLEC
                 return OptsT.GetHashCode(ref Item);
             }
         }
+
+        private static readonly bool ItemEqualityComparerOverriden = typeof(OptsT).GetMethod(nameof(OptsT.ItemEquals)) != null;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool ItemIsBitwiseEquatable()
+        {
+            var type = typeof(ItemT);
+
+            // https://github.com/dotnet/runtime/blob/14304eb31eea134db58870a6d87312231b1e02b6/src/coreclr/vm/jitinterface.cpp#L7221
+            return type == typeof(byte) ||
+                   type == typeof(sbyte) ||
+                   type == typeof(char) ||
+                   type == typeof(short) ||
+                   type == typeof(ushort) ||
+                   type == typeof(int) ||
+                   type == typeof(uint) ||
+                   type == typeof(long) ||
+                   type == typeof(ulong) ||
+                   type == typeof(nint) ||
+                   type == typeof(nuint) ||
+                   type == typeof(Rune);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int IndexOfItem(ItemsArrayInterfacer itemsArrInterfacer, ItemT item, int touchedSlotsCount)
+        {
+            if (ItemIsBitwiseEquatable() && !ItemEqualityComparerOverriden)
+            {
+                if (sizeof(ItemT) == sizeof(byte))
+                {
+                    MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, byte>(ref itemsArrInterfacer.FirstItem), touchedSlotsCount)
+                                 .IndexOf((byte) (object) item);
+                }
+                
+                else if (sizeof(ItemT) == sizeof(short))
+                {
+                    MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, short>(ref itemsArrInterfacer.FirstItem), touchedSlotsCount)
+                        .IndexOf((short) (object) item);
+                }
+
+                else if (sizeof(ItemT) == sizeof(int))
+                {
+                    MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, int>(ref itemsArrInterfacer.FirstItem), touchedSlotsCount)
+                        .IndexOf((int) (object) item);
+                }
+
+                else if (sizeof(ItemT) == sizeof(long))
+                {
+                    MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, long>(ref itemsArrInterfacer.FirstItem), touchedSlotsCount)
+                        .IndexOf((long) (object) item);
+                }
+            }
+
+            else // EquatableItem will never pass the IsBitwiseEquatable check in Span.IndexOf()
+            {
+                var itemReinterpreted = Unsafe.As<ItemT, EquatableItem>(ref item);
+            
+                var span = MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, EquatableItem>(ref itemsArrInterfacer.FirstItem), touchedSlotsCount);
+
+                return span.IndexOf(itemReinterpreted);
+            }
+
+            throw new Exception("This is not possible!");
+        }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] // Allow performDecrementHighestTouchedOptimization to be constant-folded.
         public bool TryRemoveItem(ItemT item, bool performDecrementHighestTouchedOptimization = true)
         {
-            var itemReinterpreted = Unsafe.As<ItemT, EquatableItem>(ref item);
-
             var itemsArr = _itemsArr;
             
-            var span = MemoryMarshal.CreateSpan(ref Unsafe.As<ItemT, EquatableItem>(ref new ItemsArrayInterfacer(itemsArr).FirstItem), TouchedSlotsCount);
-
-            var indexOfItem = span.IndexOf(itemReinterpreted);
+            var indexOfItem = IndexOfItem(new ItemsArrayInterfacer(itemsArr), item, TouchedSlotsCount);
             
             var success = indexOfItem != -1 && ItemExistsAtIndex(new BitVectorsArrayInterfacer(_bitVectorsArr), indexOfItem, itemsArr.Length, out _);
             
