@@ -1,77 +1,75 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MILLEC;
-
-public static class MILLEC_DebuggingExtensions
+﻿namespace MILLEC
 {
-    public static T[] GetItemsArray<T>(ref this MILLEC<T> instance)
+    public static class MILLEC_DebuggingExtensions
     {
-        return instance._itemsArr;
-    }
-
-    public static byte[] GetBitVectorsArr<T>(ref this MILLEC<T> instance)
-    {
-        return instance._bitVectorsArr;
-    }
-
-    public static int GetHighestTouchedIndex<T>(ref this MILLEC<T> instance)
-    {
-        return instance._highestTouchedIndex;
-    }
-    
-    public ref struct TestIndicesEnumerator<T>
-    {
-        private readonly ref MILLEC<T> List;
-
-        private readonly MILLEC<T>.BitVectorsArrayInterfacer BitArrayInterfacer;
-
-        private readonly int HighestTouchedIndex;
-
-        private int CurrentItemIndex;
-        
-        public int Current => CurrentItemIndex;
-          
-        public TestIndicesEnumerator(ref MILLEC<T> list)
+        public static T[] GetItemsArray<T>(ref this MILLEC<T> instance)
         {
-            List = ref list;
-            BitArrayInterfacer = new MILLEC<T>.BitVectorsArrayInterfacer(list._bitVectorsArr);
-            CurrentItemIndex = -1;
-            HighestTouchedIndex = list._highestTouchedIndex;
+            return instance._itemsArr;
         }
 
-        public bool MoveNext()
+        public static byte[] GetBitVectorsArr<T>(ref this MILLEC<T> instance)
         {
-            while (true)
+            return instance._bitVectorsArr;
+        }
+
+        public static int GetHighestTouchedIndex<T>(ref this MILLEC<T> instance)
+        {
+            return instance._highestTouchedIndex;
+        }
+    
+        public ref struct TestIndicesEnumerator<T>
+        {
+            // This field is used for debugging.
+            // ReSharper disable once NotAccessedField.Local
+            private readonly ref MILLEC<T> List;
+
+            private readonly MILLEC<T>.BitVectorsArrayInterfacer BitArrayInterfacer;
+
+            private readonly int HighestTouchedIndex;
+
+            private int CurrentItemIndex;
+        
+            // ReSharper disable once ConvertToAutoPropertyWhenPossible
+            public int Current => CurrentItemIndex;
+          
+            public TestIndicesEnumerator(ref MILLEC<T> list)
             {
-                CurrentItemIndex++;
-                var shouldMoveNext = CurrentItemIndex <= HighestTouchedIndex;
+                List = ref list;
+                BitArrayInterfacer = new MILLEC<T>.BitVectorsArrayInterfacer(list._bitVectorsArr);
+                CurrentItemIndex = -1;
+                HighestTouchedIndex = list._highestTouchedIndex;
+            }
 
-                if (!shouldMoveNext)
+            public bool MoveNext()
+            {
+                while (true)
                 {
-                    return false;
-                }
+                    CurrentItemIndex++;
+                    var shouldMoveNext = CurrentItemIndex <= HighestTouchedIndex;
 
-                if (!new MILLEC<T>.BitInterfacer(BitArrayInterfacer, CurrentItemIndex).IsSet)
-                {
-                    continue;
-                }
+                    if (!shouldMoveNext)
+                    {
+                        return false;
+                    }
 
-                return true;
+                    if (!new MILLEC<T>.BitInterfacer(BitArrayInterfacer, CurrentItemIndex).IsSet)
+                    {
+                        continue;
+                    }
+
+                    return true;
+                }
+            }
+
+            public TestIndicesEnumerator<T> GetEnumerator()
+            {
+                return this;
             }
         }
-
-        public TestIndicesEnumerator<T> GetEnumerator()
-        {
-            return this;
-        }
-    }
     
-    public static TestIndicesEnumerator<T> GetTestIndicesEnumerator<T>(ref this MILLEC<T> instance)
-    {
-        return new TestIndicesEnumerator<T>(ref instance);
+        public static TestIndicesEnumerator<T> GetTestIndicesEnumerator<T>(ref this MILLEC<T> instance)
+        {
+            return new TestIndicesEnumerator<T>(ref instance);
+        }
     }
 }
