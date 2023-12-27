@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 using FluentAssertions;
 using MILLEC;
@@ -23,6 +24,17 @@ public class UntouchedMillecTests
 
         for (int i = 0; i < capacity; i++)
             Assert.Throws<Exception>(() => { int x = millec[i]; });
+    }
+
+    [Test]
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(8)]
+    public void IndexedAccessOutOfBoundsShouldError(int capacity)
+    {
+        var millec = new MILLEC<int>(capacity);
+        Assert.Throws<Exception>(() => { int x = millec[-1]; });
+        Assert.Throws<Exception>(() => { int x = millec[capacity]; });
     }
 
     [Test]
