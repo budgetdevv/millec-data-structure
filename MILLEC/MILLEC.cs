@@ -47,9 +47,14 @@ namespace MILLEC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int RoundToNextMultiple(int num, int multiple)
         {
-            var rem = num % multiple;
+            if (num != 0)
+            {
+                var rem = num % multiple;
 
-            return rem == 0 ? num : (num - rem + multiple);
+                return rem == 0 ? num : (num - rem + multiple);
+            }
+
+            return multiple;
         }
         
         private const int BYTE_BIT_COUNT = 8;
@@ -60,7 +65,7 @@ namespace MILLEC
             {
                 throw new NotImplementedException("We need to add support for managed Ts");
             }
-
+            
             // To simplify and optimize ItemsEnumerator, we make _itemsArr.Length a multiple of BYTE_BIT_COUNT
             size = RoundToNextMultiple(size, BYTE_BIT_COUNT);
             

@@ -166,6 +166,7 @@ namespace MILLEC
                 // We round up here, but indexOfLastOffsetByOne is guaranteed to never exceed list.Capacity, since capacity is a multiple of BYTE_BIT_COUNT
                 var indexOfLastOffsetByOne = RoundToNextMultiple(list.TouchedSlotsCount, BYTE_BIT_COUNT);
                 Debug.Assert(indexOfLastOffsetByOne <= list.Capacity);
+                Debug.Assert(indexOfLastOffsetByOne >= 8);
                 LastItemOffsetByOne = ref itemsArrInterfacer[indexOfLastOffsetByOne];
                 
                 CurrentBitVector = ref new BitVectorsArrayInterfacer(list._bitVectorsArr).FirstItem;
