@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -140,50 +142,125 @@ namespace MILLEC
         
         public ref struct ItemsEnumerator
         {
-            private readonly ref T FirstItem, LastItem;
+            private readonly ref T LastItemOffsetByOne;
             
-            private ref T CurrentItem;
+            private ref T CurrentItemBoundaryStart, CurrentItem;
 
-            // private ref byte CurrentBitVector;
-
-            private readonly BitVectorsArrayInterfacer BitVectorsArrayInterfacer;
+            private ref byte CurrentBitVector;
             
-            public ref T Current => ref CurrentItem;
+            // This field is used for two things:
+            // 1) Representation of whether we should use tzcnt.
+            // 2) Representation of remaining set bits if we are using tzcnt.
+            private byte CurrentBitVectorValue;
+            
+            public ref T Current => ref CurrentItemBoundaryStart;
 
-            internal ItemsEnumerator(ItemsArrayInterfacer itemsArrayInterfacer, BitVectorsArrayInterfacer bitVectorsArrayInterfacer)
+            internal ItemsEnumerator(ref MILLEC<T> list)
             {
-                FirstItem = ref itemsArrayInterfacer.FirstItem; 
+                var itemsArrInterfacer = new ItemsArrayInterfacer(list._itemsArr);
                 // MoveNext() is always called before the first iteration
-                CurrentItem = ref Unsafe.Subtract(ref FirstItem, 1);
-                // CurrentBitVector = ref bitArrayInterfacer.FirstItem;
-                BitVectorsArrayInterfacer = bitVectorsArrayInterfacer;
+                CurrentItemBoundaryStart = ref itemsArrInterfacer.FirstItem;
+       
+                // CurrentItem = ref Unsafe.NullRef<T>();
+                
+                // We round up here, but indexOfLastOffsetByOne is guaranteed to never exceed list.Capacity, since capacity is a multiple of BYTE_BIT_COUNT
+                var indexOfLastOffsetByOne = RoundToNextMultiple(list.TouchedSlotsCount, BYTE_BIT_COUNT);
+                Debug.Assert(indexOfLastOffsetByOne <= list.Capacity);
+                LastItemOffsetByOne = ref itemsArrInterfacer[indexOfLastOffsetByOne];
+                
+                CurrentBitVector = ref new BitVectorsArrayInterfacer(list._bitVectorsArr).FirstItem;
+
+                // Get its value.
+                CurrentBitVectorValue = CurrentBitVector;
+
+                if (!UseTZCNT())
+                {
+                    AdvanceBoundary();
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private bool UseTZCNT()
+            {
+                return CurrentBitVectorValue != byte.MaxValue;
+            }
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void AdvanceBoundary()
+            {
+                CurrentItemBoundaryStart = ref Unsafe.Add(ref CurrentItemBoundaryStart, BYTE_BIT_COUNT);
             }
             
             public bool MoveNext()
             {
-                // TODO: Improve performance of this.
-                MoveNext:
-                CurrentItem = ref Unsafe.Add(ref CurrentItem, 1);
+                // // This works regardless of UseTZCNT() value, due to the following reasons:
+                // // For useTZCNT == false, CurrentBitVectorValue == 0 indicates that we ran out of set bits, so we should
+                // // advance to next boundary.
+                // // For useTZCNT == true, CurrentBitVectorValue == 0 will never be true as CurrentBitVectorValue will be 1.
+                // // For useTZCNT == true, Unsafe.AreSame(ref CurrentItem, ref CurrentItemBoundaryStart) == true would mean
+                // // that we are at next boundary.
+                // var shouldAdvanceToNextBoundary = CurrentBitVectorValue == 0 || Unsafe.AreSame(ref CurrentItem, ref CurrentItemBoundaryStart);
                 
-                if (!Unsafe.IsAddressGreaterThan(ref CurrentItem, ref LastItem))
+                Start:
+                var useTZCNT = UseTZCNT();
+                
+                if (useTZCNT)
                 {
-                    var currentIndex = IndexOfItemRef(ref FirstItem, ref CurrentItem);
-
-                    if (new BitInterfacer(BitVectorsArrayInterfacer, currentIndex).IsSet)
+                    if (CurrentBitVectorValue == 0)
                     {
-                        return true;
+                        // Forward jump to favor hot path.
+                        goto NextBoundaryUseTZCNT;
                     }
+
+                    var index = BitOperations.TrailingZeroCount(CurrentBitVectorValue);
                     
-                    goto MoveNext;
+                    // Mask off current bit.
+                    CurrentBitVectorValue = unchecked((byte) (CurrentBitVectorValue & ~(1 << index)));
+                    
+                    CurrentItem = ref Unsafe.Add(ref CurrentItemBoundaryStart, index);
+                    
+                    return true; // No reason to merge return paths for both, it is an additional jump.
+                }
+
+                else
+                {
+                    if (Unsafe.AreSame(ref CurrentItem, ref CurrentItemBoundaryStart))
+                    {
+                        // Forward jump to favor hot path.
+                        goto NextBoundary;
+                    }
+
+                    CurrentItem = ref Unsafe.Add(ref CurrentItem, 1);
+                    
+                    return true; // No reason to merge return paths for both, it is an additional jump.
                 }
                 
-                return false;
+                NextBoundaryUseTZCNT:
+                AdvanceBoundary();
+                NextBoundary:
+                // Regardless of UseTZCNT value, we need to advance CurrentBitVector.
+                CurrentBitVector = ref Unsafe.Add(ref CurrentBitVector, 1);
+                
+                var shouldMoveNext = !Unsafe.AreSame(ref CurrentItemBoundaryStart, ref LastItemOffsetByOne);
+                
+                // This branch will be predicted taken, as the forward jump to return shouldMoveNext is predicted NOT
+                // taken. This is only relevant for static branch prediction, when there's no branch data.
+                if (shouldMoveNext)
+                {
+                    // Read out
+                    CurrentBitVectorValue = CurrentBitVector;
+                    goto Start;
+                }
+
+                // False.
+                return shouldMoveNext;
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ItemsEnumerator GetEnumerator()
         {
-            return new ItemsEnumerator(new ItemsArrayInterfacer(_itemsArr), new BitVectorsArrayInterfacer(_bitVectorsArr));
+            return new ItemsEnumerator(ref this);
         }
         
         public ref struct FreeSlotInterfacer
